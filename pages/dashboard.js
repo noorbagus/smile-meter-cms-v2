@@ -4,7 +4,7 @@ import { Package, Users, BarChart3, Settings } from 'lucide-react';
 import { useAuthGuard } from '../hooks/useAuthGuard';
 import { createClient } from '../utils/supabase/client';
 import Overview from '../components/dashboard/overview';
-import StockTable from '../components/dashboard/stock-table';
+import StockManagement from '../components/dashboard/stock-management';
 import UserManagement from '../components/dashboard/user-management';
 
 const Dashboard = () => {
@@ -115,15 +115,7 @@ const Dashboard = () => {
         )}
 
         {activeTab === 'stock' && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Stock Management</h2>
-                <p className="text-gray-600">Manage product inventory across units</p>
-              </div>
-            </div>
-            <StockTable selectedUnit={selectedUnit} user={user} />
-          </div>
+          <StockManagement user={user} />
         )}
 
         {activeTab === 'users' && (
