@@ -1,19 +1,62 @@
-// pages/dashboard.js
-import { useState } from 'react';
-import { Package, Users, BarChart3, Settings } from 'lucide-react';
-import { useAuthGuard } from '../hooks/useAuthGuard';
-import { createClient } from '../utils/supabase/client';
+// pages/dashboard.js - Fixed version
+import { useState, useEffect } from 'react';
+import { Package, Users, BarChart3 } from 'lucide-react';
+import { useAuth } from '../pages/_app';
+import { useRouter } from 'next/router';
+import { supabase } from '../lib/supabase';
 import Overview from '../components/dashboard/overview';
-import StockManagement from '../components/dashboard/stock-management';
+import StockTable from '../components/dashboard/stock-table';
 import UserManagement from '../components/dashboard/user-management';
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [selectedUnit, setSelectedUnit] = useState(null);
+  const [units, setUnits] = useState([]);
+  const [loading, setLoading] = useState(true);
   
-  // Use auth guard with admin role requirement
-  const { user, profile, loading } = useAuthGuard('admin');
-  const supabase = createClient();
+  const { user, profile } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Check auth and role
+    if (!user || !profile) {
+      router.push('/login');
+      return;
+    }
+
+    if (profile.role !== 'admin') {
+      if (profile.role === 'customer_service') {
+        router.push('/cs-dashboard');
+      } else {
+        router.push('/login');
+      }
+      return;
+    }
+
+    // Load initial data
+    loadUnits();
+  }, [user, profile, router]);
+
+  const loadUnits = async () => {
+    try {
+      const { data: unitsData } = await supabase
+        .from('units')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+
+      setUnits(unitsData || []);
+      
+      // Set first unit as default selected
+      if (unitsData?.length > 0) {
+        setSelectedUnit(unitsData[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading units:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleUnitSelect = (unitId) => {
     setSelectedUnit(unitId);
@@ -27,7 +70,6 @@ const Dashboard = () => {
     await supabase.auth.signOut();
   };
 
-  // Show loading while checking auth
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -115,16 +157,48 @@ const Dashboard = () => {
         )}
 
         {activeTab === 'stock' && (
-          <StockManagement user={user} />
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Stock Management</h2>
+                <p className="text-gray-600">Manage product inventory across units</p>
+              </div>
+              
+              {/* Unit Selection for Stock Tab */}
+              {units.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Unit</label>
+                  <select 
+                    value={selectedUnit || ''}
+                    onChange={(e) => setSelectedUnit(e.target.value)}
+                    className="border border-gray-300 rounded-lg px-3 py-2 w-64"
+                  >
+                    {units.map(unit => (
+                      <option key={unit.id} value={unit.id}>
+                        {unit.name} - {unit.location}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+            
+            {selectedUnit && (
+              <StockTable selectedUnit={selectedUnit} user={user} />
+            )}
+            
+            {!selectedUnit && (
+              <div className="bg-white rounded-lg p-8 text-center">
+                <Package className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No Unit Selected</h3>
+                <p className="mt-1 text-sm text-gray-500">Please select a unit to manage stock.</p>
+              </div>
+            )}
+          </div>
         )}
 
         {activeTab === 'users' && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-
-            </div>
-            <UserManagement user={user} />
-          </div>
+          <UserManagement user={user} />
         )}
       </main>
     </div>
